@@ -1,7 +1,7 @@
 #ifndef OUTPUT_FLATFILE_H
 #define OUTPUT_FLATFILE_H
 
-#include "addrwatch.h"
+#include "addr2ethers.h"
 
 void output_flatfile_init();
 void output_flatfile_reload();

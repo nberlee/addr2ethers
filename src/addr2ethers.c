@@ -11,12 +11,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "addrwatch.h"
+#include "addr2ethers.h"
 #include "check.h"
 #include "mcache.h"
 #include "output_flatfile.h"
-#include "output_shm.h"
-#include "output_sqlite.h"
 #include "parse.h"
 #include "process.h"
 #include "storage.h"
@@ -33,23 +31,12 @@ static char doc[] = "Keep track of ethernet/ip address pairings for IPv4 and IPv
 address blacklisting option '-b' can be used multiple times.";
 
 static struct argp_option options[] = { { 0, 0, 0, 0, "Options for data output:", 0 },
-	{ "shm-log-size", 'L', "NUM", 0,
-		"Change shared memory log size (default: " STR(DEFAULT_SHM_LOG_SIZE) ").", 0 },
-	{ "shm-log-name", 'm', "NUM", 0,
-		"Change shared memory log name (default: " DEFAULT_SHM_LOG_NAME ").", 0 },
-
 	{ "output", 'o', "FILE", 0, "Output data to plain text FILE.", 0 },
 	{ "quiet", 'q', 0, 0, "Suppress any output to stdout and stderr.", 0 },
 	{ "verbose", 'v', 0, 0, "Enable debug messages.", 0 },
-#if HAVE_LIBSQLITE3
-	{ "sqlite3", 's', "FILE", 0, "Output data to sqlite3 database FILE.", 0 },
-	{ "sqlite3-table", 2, "TBL", 0, "Use sqlite table TBL (default: " PACKAGE ").", 0 },
-#endif
 	{ 0, 0, 0, 0, "Options for data filtering:", 0 },
-	{ "ipv4-only", '4', 0, 0, "Capture only IPv4 packets.", 0 },
-	{ "ipv6-only", '6', 0, 0, "Capture only IPv6 packets.", 0 },
 	{ "blacklist", 'b', "IP", 0, "Ignore pairings with specified IP.", 0 },
-	{ "ratelimit", 'r', "NUM", 0, "Ratelimit duplicate ethernet/ip pairings to 1 every NUM seconds. If NUM = 0, ratelimiting is disabled. If NUM = -1, suppress duplicate entries indefinitely. Default is 0.",
+	{ "ratelimit", 'r', "NUM", 0, "Ratelimit duplicate ethernet/ip pairings to 1 every NUM seconds. If NUM = 0, ratelimiting is disabled. If NUM = -1, suppress duplicate entries indefinitely. Default is -1.",
 		0 },
 	{ "hashsize", 'H', "NUM", 0,
 		"Size of ratelimit hash table. Default is 1 (no hash table).", 0 },
@@ -67,20 +54,10 @@ static struct argp argp = { options, parse_opt, args_doc, doc, NULL, NULL, NULL 
 struct addrwatch_config cfg;
 
 static const char ip4_filter[] = "arp";
-static const char ip6_filter[] = "ip6 and not tcp and not udp and not esp and not ah";
-static const char def_filter[] = "ip6 and not tcp and not udp and not esp and not ah or arp";
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
 	switch (key) {
-	case '4':
-		cfg.v4_flag = 1;
-		cfg.v6_flag = 0;
-		break;
-	case '6':
-		cfg.v6_flag = 1;
-		cfg.v4_flag = 0;
-		break;
 	case 'b':
 		blacklist_add(arg);
 		break;
@@ -90,15 +67,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 		break;
 	case 'H':
 		cfg.hashsize = strtol(arg, NULL, 10);
-		break;
-	case 'L':
-		cfg.shm_data.size = strtol(arg, NULL, 10);
-		if (cfg.shm_data.size < 1) {
-			cfg.shm_data.size = 1;
-		}
-		break;
-	case 'm':
-		cfg.shm_data.name = arg;
 		break;
 	case 'o':
 		cfg.data_file = arg;
@@ -118,14 +86,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 			cfg.ratelimit = -1;
 		}
 		break;
-#if HAVE_LIBSQLITE3
-	case 's':
-		cfg.sqlite_file = arg;
-		break;
-	case 2:
-		cfg.sqlite_table = arg;
-		break;
-#endif
 	case 'u':
 		cfg.uname = arg;
 		break;
@@ -226,13 +186,7 @@ void add_iface(char *iface)
 	struct iface_config *ifc;
 	int rc;
 
-	if (cfg.v4_flag) {
-		filter = ip4_filter;
-	} else if (cfg.v6_flag) {
-		filter = ip6_filter;
-	} else {
-		filter = def_filter;
-	}
+	filter = ip4_filter;
 
 	ifc = (struct iface_config *)calloc(1, sizeof(struct iface_config));
 
@@ -348,8 +302,6 @@ void reload_cb(int fd, short events, void *arg)
 	log_msg(LOG_DEBUG, "Reopening output files");
 
 	output_flatfile_reload();
-	output_sqlite_reload();
-	output_shm_reload();
 }
 
 #if HAVE_LIBEVENT2
@@ -485,15 +437,14 @@ int main(int argc, char *argv[])
 	memset(&cfg, 0, sizeof(cfg));
 
 	/* Default configuration */
-	//	cfg.ratelimit = 0;
+	cfg.ratelimit = -1;
+	cfg.data_file = "/etc/ethers";
 	cfg.hashsize = 1;
 	//	cfg.quiet = 0;
 	cfg.promisc_flag = 1;
 	//	cfg.ratelimit = 0;
 	//	cfg.sqlite_file = NULL;
 	//	cfg.uname = NULL;
-	cfg.shm_data.size = DEFAULT_SHM_LOG_SIZE;
-	cfg.shm_data.name = DEFAULT_SHM_LOG_NAME;
 #if HAVE_LIBSQLITE3
 	cfg.sqlite_table = PACKAGE;
 #endif
@@ -546,8 +497,6 @@ int main(int argc, char *argv[])
 	}
 
 	output_flatfile_init();
-	output_sqlite_init();
-	output_shm_init();
 
 	/* main loop */
 #if HAVE_LIBEVENT2
@@ -556,8 +505,6 @@ int main(int argc, char *argv[])
 	event_dispatch();
 #endif
 
-	output_shm_close();
-	output_sqlite_close();
 	output_flatfile_close();
 
 	for (ifc = cfg.interfaces; ifc != NULL; ifc = del_iface(ifc)) {

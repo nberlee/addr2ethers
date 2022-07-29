@@ -1,7 +1,5 @@
 #include "mcache.h"
 #include "output_flatfile.h"
-#include "output_shm.h"
-#include "output_sqlite.h"
 #include "storage.h"
 #include "util.h"
 
@@ -127,7 +125,6 @@ void save_pairing(struct pkt *p)
 		ip4_ntoa(p->ip_addr, ip_str);
 	}
 
-	output_shm_save(p, mac_str, ip_str);
 	if (!cfg.quiet) {
 		printf("%lu %s %u %s %s %s\n", tstamp, p->ifc->name,
 			p->vlan_tag, mac_str, ip_str, pkt_origin_str[p->origin]);
@@ -138,11 +135,6 @@ void save_pairing(struct pkt *p)
 		output_flatfile_save(p, mac_str, ip_str);
 	}
 
-#if HAVE_LIBSQLITE3
-	if (cfg.sqlite_file) {
-		output_sqlite_save(p, mac_str, ip_str);
-	}
-#endif
 
 	if (cfg.ratelimit) {
 		cache_add(p->l2_addr, p->ip_addr, p->ip_len, tstamp,

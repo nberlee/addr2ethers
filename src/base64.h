@@ -1,7 +1,7 @@
 #ifndef BASE64_H
 #define BASE64_H
 
-#include "addrwatch.h"
+#include "addr2ethers.h"
 #include <stdint.h>
 
 void base64_encode(const uint8_t *src, char *dst, int ssize, int dsize);

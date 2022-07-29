@@ -5,7 +5,7 @@
 #include "config.h"
 #endif
 
-#include "addrwatch.h"
+#include "addr2ethers.h"
 
 enum ip_type_len {
 	IP4_LEN = 4,

@@ -1,39 +1,33 @@
-addrwatch
-=========
+addr2ethers
+===========
 
-This is a tool similar to arpwatch. It main purpose is to monitor network and 
-log discovered ethernet/ip pairings.
+This is a tool similar to addrwatch. It main purpose is to monitor network and 
+maintain /etc/ethers.
 
-Main features of addrwatch:
+Main features of addr2ethers:
 
-* IPv4 and IPv6 address monitoring
+* IPv4  address monitoring
 * Monitoring multiple network interfaces with one daemon
 * Monitoring of VLAN tagged (802.1Q) packets.
-* Output to stdout, plain text file, syslog, sqlite3 db, MySQL db
-* IP address usage history preserving output/logging
+* Output to stdout, plain text file
 
-Addrwatch is extremely useful in networks with IPv6 autoconfiguration 
-(RFC4862) enabled. It allows to track IPv6 addresses of hosts using IPv6 
-privacy extensions (RFC4941).
 
-The main difference between arpwatch and addrwatch is the format of output
-files.
+The main difference between addrwatch and addr2ethers is that add2ethers is only
+ment for maintaining the /etc/ethers file in a dumb ap openwrt scenario, making
+luci and ubus show the ip next to mac address of with connected wlan stations.
 
-Arpwatch stores only current state of the network ethernet/ip pairings and 
-allows to send email notification when a pairing change occurs. This is fine
-for small and rather static networks. In arpwatch case all the history of
-pairings is saved only in administrators mailbox. When arpwatch is used for
-monitoring dozen or more networks it becomes hard to keep track of the historic
-address usage information.
+Addrwatch store the data in an incompatible format compared to /etc/ethers. This 
+can be solved with 
+`addrwatch --ipv4-only --ratelimit=-1 br-lan | gawk '{print $4, $5; system("")}' > /etc/ethers &`
+addr2ethers makes it a bit easier to run it as a service, and removes unneeded
+features.
 
-Addrwatch do not keep persistent network pairings state but instead logs all 
+addr2ethers do not keep persistent network pairings state but instead logs all 
 the events that allow ethernet/ip pairing discovery. For IPv4 it is ARP 
-requests, ARP replies and ARP ACD (Address Conflict Detection) packets. For 
-IPv6 it uses ICMPv6 Neighbor Discovery and (DAD) Duplicate Address Detection 
-packets (Neighbor Solicitations, Neighbor Advertisements).
+requests, ARP replies and ARP ACD (Address Conflict Detection) packets.
 
-The output file produced by addrwatch is similar to arpwatch. Example of
-addrwatch output file:
+The output file produced by addr2ethers is similar to arpwatch. Example of
+addr2ethers output file:
 
 ```
 1329486484 eth0 0 00:aa:bb:cc:dd:ee fe80::2aa:bbff:fecc:ddee ND_NS
@@ -44,66 +38,24 @@ addrwatch output file:
 1329486488 eth0 7 00:33:33:33:33:33 192.168.2.2 ARP_REQ
 ```
 
-For each pairing discovery event addrwatch produce time-stamp, interface, 
+For each pairing discovery event addr2ethers produce time-stamp, interface, 
 vlan_tag (untagged packets are marked with 0 vlan_tag), ethernet address, IP 
 address and packet type separated by spaces.
 
-To prevent addrwatch from producing too many duplicate output data in active
+To prevent addr2ethers from producing too many duplicate output data in active
 networks rate-imiting should be used. Read more in 'Ratelimit' section. 
 
-Modular architecture v1.0
--------------------------
-
-Since version v1.0 addrwatch was rewritten to be more modular. Different output
-modules can be configured and started independently from the main data
-collection service.
-
-Application architecture:
-
-```
-                                               +------------------+
-                                           +-->| addrwatch_stdout |
-                                           |   +------------------+
-                                           |
-                                           |   +------------------+
-             +-------------+               +-->| addrwatch_syslog |
-     network |             | shared memory |   +------------------+
-    --------->  addrwatch  +-------------->|
-             |             |               |   +------------------+
-             +-------------+               +-->| addrwatch_mysql  |
-                                               +------------------+
-```
-
-In the diagram boxes represent separate processes. Main **addrwach** process is
-responsible for listening on all configured network interfaces and dumping all
-data to a shared memory segment. Output modules have be be started separately,
-they poll shared memory segment for changes and writes data to a specific output
-format. Current version supports **stdout**, **syslog** and **mysql** output
-formats.
-
-**Note:** in addrwatch version v1.0 mysql output schema was changed to an more
-efficient one, by storing IP and mac addresses as binary values. To migrate
-existing addrwatch v0.8 installations to v1.0 there is a migration script
-*migrate_0.8_to_1.0.sql* in the main repository directory.
 
 Installation
 ------------
 
-To compile addrwatch you must have following shared libraries:
+To compile addr2ethers you must have following shared libraries:
 
 * libpcap
 * libevent
-* mysqlclient (optional)
 
-To compile addrwatch with mysql support:
 
-```
-$ ./configure --enable-mysql
-$ make
-$ make install
-```
-
-To compile basic addrwatch version:
+To compile addr2ethers:
 
 ```
 $ ./configure
@@ -111,8 +63,8 @@ $ make
 $ make install
 ```
 
-If you do not want to install addrwatch to the system, skip the 'make install' 
-step. You can find main addrwatch binary and all output addrwatch\_\* binaries
+If you do not want to install addr2ethers to the system, skip the 'make install' 
+step. You can find main addr2ethers binary and all output addr2ethers\_\* binaries
 in 'src' directory.
 
 Building from repo
@@ -120,7 +72,7 @@ Building from repo
 
 If sources are obtained directly from the git repository (instead of
 distribution source package) project has to be bootstrapped using
-autoreconf/automake. A helper shell script `bottstrap.sh` is included in the
+autoreconf/automake. A helper shell script `bootstrap.sh` is included in the
 repository for that. Note that bootstraping autotools project requires autoconf
 and automake to be available on the system.
 
@@ -140,63 +92,63 @@ git config core.hooksPath .githooks
 Usage
 -----
 
-To simply try out addrwatch start it without any arguments:
+To simply try out addr2ethers start it without any arguments:
 
 ```
-$ addrwatch
+$ addr2ethers
 ```
 
-When started like this addrwatch opens first non loopback interface and start
+When started like this addr2ethers opens first non loopback interface and start
 logging event to the console without writing anything to disk. All events
 are printed to stdout, debug, warning, and err messages are sent to syslog and
 printed to stderr.
 
 If you get error message:
-addrwatch: ERR: No suitable interfaces found!
+addr2ethers: ERR: No suitable interfaces found!
 
-It usually means you started addrwatch as normal user and do not have sufficient
-privileges to start sniffing on network interface. You should start addrwatch as
+It usually means you started addr2ethers as normal user and do not have sufficient
+privileges to start sniffing on network interface. You should start addr2ethers as
 root:
 
 ```
-$ sudo addrwatch
+$ sudo addr2ethers
 ```
 
 You can specify which network interface or interfaces should be monitored by
 passing interface names as arguments. For example:
 
 ```
-$ addrwatch eth0 tap0
+$ addr2ethers eth0 tap0
 ```
 
 To find out about more usage options:
 
 ```
-$ addrwatch --help
+$ addr2ethers --help
 ```
 
-In production environment it is recommended to start main addrwatch binary in a
+In production environment it is recommended to start main addr2ethers binary in a
 daemon mode, and use separate output processes for logging data. Example:
 
 ```
-$ ./addrwatch -d eth0
-$ ./addrwatch_stdout
+$ ./addr2ethers -d eth0
+$ ./addr2ethers_stdout
 ```
 
 Ratelimiting
 ------------
 
-If used without ratelimiting addrwatch reports etherment/ip pairing everytime it
+If used without ratelimiting addr2ethers reports etherment/ip pairing everytime it
 gets usable ARP or IPv6 ND packet. In actively used networks it generates many
 duplicate pairings especially for routers and servers.
 
 Ratelimiting option '-r NUM' or '--ratelimit=NUM' surpress output of duplicate
-pairings for at least NUM seconds. In other words if addrwatch have discovered 
+pairings for at least NUM seconds. In other words if addr2ethers have discovered 
 some pairing (mac,ip) it will not report (mac,ip) again unless NUM seconds have
 passed.
 
 There is one exception to this rule to track ethernet address changes. If
-addrwatch have discovered pairings: (mac1,ip),(mac2,ip),(mac1,ip) within
+addr2ethers have discovered pairings: (mac1,ip),(mac2,ip),(mac1,ip) within
 ratelimit time window it will report all three pairings. By doing so 
 ratelimiting will not loose any information about pairing changes.
 
@@ -248,10 +200,10 @@ are reported.
 
 If NUM is set to -1, ratelimiting is enabled with infinitely long time window
 therefore all duplicate pairings are suppressed indefinitely. In this mode 
-addrwatch acts almost as arpwatch with the exception that ethernet address 
+addr2ethers acts almost as arpwatch with the exception that ethernet address 
 changes are still reported.
 
-It might look tempting to always use addrwatch with --ratelimit=-1 however by
+It might look tempting to always use addr2ethers with --ratelimit=-1 however by
 doing so you loose the information about when and for what period of time 
 specific IP address was used. There will be no difference between temporary IPv6
 addressed which was used once and statically configured permanent addresses.

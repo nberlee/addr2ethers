@@ -2,7 +2,7 @@
 #define MCACHE_H
 
 #pragma once
-#include "addrwatch.h"
+#include "addr2ethers.h"
 
 #include <sys/types.h>
 #include <netinet/if_ether.h>

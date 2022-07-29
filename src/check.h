@@ -1,7 +1,7 @@
 #ifndef CHECK_H
 #define CHECK_H
 
-#include "addrwatch.h"
+#include "addr2ethers.h"
 
 int check_arp(struct pkt *p);
 int check_ns(struct pkt *p);

@@ -20,9 +20,6 @@ Makefile.in
 /src/config.h.in
 /src/config.h.in~
 /src/stamp-h1
-/src/addrwatch
-/src/addrwatch_mysql
-/src/addrwatch_stdout
-/src/addrwatch_syslog
+/src/addr2ethers
 
 TAGS

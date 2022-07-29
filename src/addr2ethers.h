@@ -9,9 +9,6 @@
 
 #include <event.h>
 #include <pcap.h>
-#if HAVE_LIBSQLITE3
-#include <sqlite3.h>
-#endif
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -60,18 +57,6 @@ struct addrwatch_config {
 	char *data_file;
 	FILE *data_fd;
 
-	struct {
-		struct shm_log *log;
-		char *name;
-		uint64_t size;
-	} shm_data;
-
-#if HAVE_LIBSQLITE3
-	char *sqlite_file;
-	char *sqlite_table;
-	sqlite3 *sqlite_conn;
-	sqlite3_stmt *sqlite_stmt;
-#endif
 	struct event_base *eb;
 #if HAVE_LIBEVENT2
 	struct event *sigint_ev;
