@@ -1,4 +1,4 @@
-//#include <stdint.h>
+//#include <inttypes.h>
 //#include <stdio.h>
 //#include <stdlib.h>
 
@@ -201,9 +201,9 @@ int parse_packet(struct pkt *p)
 	case ETHERTYPE_ARP:
 		rc = parse_arp(p);
 		break;
-	case ETHERTYPE_IPV6:
+/*	case ETHERTYPE_IPV6:
 		rc = parse_ipv6(p);
-		break;
+		break;*/
 	default:
 		rc = -1;
 		break;
